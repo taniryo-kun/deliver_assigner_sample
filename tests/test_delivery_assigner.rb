@@ -13,102 +13,70 @@ Dir["./models/*.rb"].each {|file| require file }
 # 注文情報と配送員情報からアサイン候補リストが得られること
 # アサイン候補リストの順番の妥当性
 
+# todo
+# 既にアサインされている商品の移動先に近い商品が後からきたらそれもついでに一緒に配送して欲しい
+# 配達中であれば現在地を頼りにすればいいが、配達予定だとアサイン商品の情報を見ないといけない（結果一律アサイン商品を見た方が良さそう）
+# 一括で注文がきた時の割り振りロジック
+# pickup場所、配達場所の近いものをグルーピングする必要がある？
+# pickup場所が同じ(近く)であればなるべく同じ人に固めてアサインしたい
+# 近い配達場所のものをなるべく同じ人に固めてアサインしたい
+# 
+
 # インプットデータ
-
-def make_test_product
-  # 五反田TOC
-  gotanda_toc = Location.new(35.622668, 139.720082)
-
-  FoodDeliveryProduct.new(
-    DateTime.parse('2020-08-09T10:00:00'),
-    DateTime.parse('2020-08-09T10:30:00'),
-    gotanda_toc
-  )
-end
-
-def make_test_delivers
-  # 五反田駅
-  gotanda_sta = Location.new(35.625889, 139.723549)
-  # 207オフィス
-  nimarunana_office = Location.new(35.633098, 139.703881)
-  # 荏原中延駅
-  ebaranokanobu_sta = Location.new(35.610176, 139.711907)
-  # 林試の森公園
-  rinshi_park = Location.new(35.625594, 139.702976)
-  deliver1 = Deliver.new(
-    'deliver1',
-    [gotanda_sta],
-    [WorkingShift.new(
-      DateTime.parse('2020-08-09T10:00:00'),
-      DateTime.parse('2020-08-09T15:00:00')
-    )],
-    []
-  )
-  deliver2 = Deliver.new(
-    'deliver2',
-    [nimarunana_office],
-    [WorkingShift.new(
-      DateTime.parse('2020-08-09T10:00:00'),
-      DateTime.parse('2020-08-09T18:00:00')
-    )],
-    []
-  )
-  deliver3 = Deliver.new(
-    'deliver3',
-    [ebaranokanobu_sta],
-    [WorkingShift.new(
-      DateTime.parse('2020-08-09T13:00:00'),
-      DateTime.parse('2020-08-09T19:00:00')
-    ), WorkingShift.new(
-      DateTime.parse('2020-08-10T10:00:00'),
-      DateTime.parse('2020-08-10T12:00:00')
-    )],
-    []
-  )
-  deliver4 = Deliver.new(
-    'deliver4',
-    [rinshi_park],
-    [WorkingShift.new(
-      DateTime.parse('2020-08-09T09:00:00'),
-      DateTime.parse('2020-08-09T19:00:00')
-    )],
-    []
-  )
-  [deliver2, deliver3, deliver1, deliver4]
-end
 
 # 該当時間に稼働中の配送員
 
 class DeliverTest < Minitest::Test
   def setup
-    @all_delivers = make_test_delivers
+    @all_delivers = Deliver.all
     @del2, @del3, @del1, @del4 = @all_delivers
-    @product = make_test_product
+    @prod_gotanda, @prod_meguro, @prod_fudomae = FoodDeliveryProduct.all
   end
 
   def test_available_delivers
-    available_delivers = Deliver.available_delivers(@all_delivers, @product.scheduled_picked_up_at)
+    available_delivers = Deliver.available_delivers(@all_delivers, @prod_gotanda.scheduled_picked_up_at)
     assert_equal [@del2, @del1, @del4], available_delivers
   end
 end
 
 class DeliveryAssignerTest < Minitest::Test
   def setup
-    @all_delivers = make_test_delivers
+    @assigner = DeliveryAssigner.new
+    @all_delivers = Deliver.all
     @del_207, @del_nakanobu, @del_gotanda, @del_rinshi = @all_delivers
-    @product = make_test_product
+    @prod_gotanda, @prod_meguro, @prod_fudomae = FoodDeliveryProduct.all
+    @available_delivers = Deliver.available_delivers(@all_delivers, @prod_gotanda.scheduled_picked_up_at)
   end
 
-  def test_candidates
-    assigner = DeliveryAssigner.new
-    available_delivers = Deliver.available_delivers(@all_delivers, @product.scheduled_picked_up_at)
-    candidates = assigner.candidates(available_delivers, @product)
-    assert_equal @del_gotanda, candidates.first
+  def test_sort_by_distance
+    sorted = @assigner.sort_by_distance(@available_delivers, @prod_gotanda.pickup_location)
+    assert_equal @del_rinshi, sorted.first
   end
 
-  # def test_suggest
-  # end
+  def test_sort_by_status
+    @assigner.assign(@del_gotanda, @prod_gotanda)
+    @assigner.assign(@del_207, @prod_meguro)
+    sorted = @assigner.sort_by_status(@available_delivers)
+    assert_equal @del_rinshi, sorted.first
+  end
 
-  # def test_assign
-  # end
+  def test_sort_by_delivery_time
+    sorted = @assigner.sort_by_delivery_time(@all_delivers, @prod_meguro)
+    # puts @all_delivers.map { |d| d.name }
+    # puts sorted.map { |d| d.name }
+    assert_equal @del_rinshi, sorted.first
+  end
+
+  def test_all_deliver_full
+    @assigner.assign(@del_gotanda, @prod_gotanda)
+    @assigner.assign(@del_207, @prod_meguro)
+    @assigner.assign(@del_rinshi, @prod_fudomae)
+    candidates = @assigner.candidates(@available_delivers, @prod_fudomae)
+    assert_equal [], candidates
+  end
+
+  def test_assign
+    @assigner.assign(@del_gotanda, @prod_gotanda)
+    assert @del_gotanda.products.include?(@prod_gotanda)
+  end
 end
