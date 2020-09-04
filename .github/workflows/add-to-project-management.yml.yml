@@ -4,7 +4,7 @@ on:
   issues:
     types: [opened]
 env:
-  MY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  MY_GITHUB_TOKEN: ${{ secrets.TANIRYO_SECRET_TOKEN }}
 
 jobs:
   add-to-project-management:
@@ -13,4 +13,4 @@ jobs:
     - name: Add to Project(ProjectManagement)
       uses: srggrs/assign-one-project-github-action@1.2.0
       with:
-        project: 1
+        project: 'https://github.com/users/taniryo-kun/projects/1'
