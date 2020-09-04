@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Add to Project(ProjectManagement)
-      uses: skeet70/default-project-board-action@v1
+      uses: srggrs/assign-one-project-github-action@1.2.0
       with:
         project: 1
         github_token: ${{ secrets.GITHUB_TOKEN }}
