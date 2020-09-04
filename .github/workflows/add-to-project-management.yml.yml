@@ -1,0 +1,15 @@
+name: Add to ProjectManagement board when issue created
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-to-project-management:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Add to Project(ProjectManagement)
+      uses: skeet70/default-project-board-action@v1
+      with:
+        project: 1
+        github_token: ${{ secrets.GITHUB_TOKEN }}
